@@ -4,3 +4,4 @@ dist/
 .env.local
 npm-debug.log
 .DS_Store
+aws-ec2-aurora-engine-4d1b.pem
