@@ -69,7 +69,7 @@ app.post('/api/events', async (req, res) => {
     eventsEnqueued.inc({ type: evento.type }, 1);
 
     console.log(`[INGESTA] Evento recibido: ${evento.type} | Placa: ${evento.vehicle_plate} | Timestamp: ${receivedAt}`);
-    return res.status(202).json({ status: 'queued', eventId: evento.eventId, queuedAt: receivedAt });
+    return res.status(200).json({ status: 'queued', eventId: evento.eventId, queuedAt: receivedAt });
   } catch (err) {
     console.error('[ERROR-INGESTA]', err);
     return res.status(500).json({ error: 'Error interno' });
