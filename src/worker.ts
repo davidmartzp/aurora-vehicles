@@ -5,8 +5,9 @@ import { EventEmitter } from 'events';
 import { sendAlertEmail } from './email';
 import { eventsProcessed, eventsFailed, processingLatency } from './metrics';
 
+// Event bus para manejar eventos internos del sistema
 export const eventBus = new EventEmitter();
-
+// Escuchar eventos de emergencia para enviar alertas por email
 eventBus.on('emergency.detected', async (data) => {
   try {
     await sendAlertEmail('Emergencia detectada', JSON.stringify(data, null, 2));
@@ -15,7 +16,7 @@ eventBus.on('emergency.detected', async (data) => {
   }
 });
 
-// Process up to 10 concurrent jobs
+// Sólo procesamos 10 eventos concurrentemente para evitar sobrecargar el sistema
 eventQueue.process(10, async (job) => {
   const start = Date.now();
   const evento = job.data as VehicleEvent;
@@ -24,10 +25,11 @@ eventQueue.process(10, async (job) => {
   console.log(`[WORKER-${job.id}] Procesando evento: ${evento.type} | VehículoID: ${evento.vehicleId} | Timestamp: ${processedAt}`);
 
   try {
-    // Mark processing in Redis
+    // Marcar el evento como "processing" en Redis para evitar reprocesarlo en caso de fallos
     const key = `evento:${evento.eventId}`;
     await redisClient.hset(key, { status: 'processing', processingAt: processedAt });
 
+    // Simular procesamiento (ej: lógica de negocio, llamadas a APIs externas, etc.)
     if (evento.type === 'Emergency') {
       console.log(`[EMERGENCIA] Detectada emergencia | VehículoID: ${evento.vehicleId} | Timestamp: ${processedAt}`);
       eventBus.emit('emergency.detected', { ...evento, detectedAt: processedAt });

@@ -7,11 +7,13 @@ const smtpPass = process.env.SMTP_PASS;
 const fromAddress = process.env.FROM_ADDRESS || 'alerts@example.com';
 const alertEmailTo = process.env.ALERT_EMAIL_TO || smtpUser;
 
+// Si no se configuran las credenciales SMTP, el sistema de email simplemente loguea los mensajes en consola
 let transporter: nodemailer.Transporter | null = null;
 if (smtpHost && smtpUser) {
   transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
 }
 
+// Función para enviar emails de alerta
 export async function sendAlertEmail(subject: string, body: string): Promise<void> {
   if (!transporter) {
     console.log('[EMAIL-STUB] transporter not configured, logging instead');

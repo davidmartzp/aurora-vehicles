@@ -10,7 +10,7 @@ import metricsRegister, { eventsEnqueued } from './metrics';
 const app = express();
 app.use(bodyParser.json());
 
-// Rate limiter: 15 req/s
+// Limitar a 15 requests por segundo para evitar sobrecarga
 const limiter = rateLimit({ windowMs: 1000, max: 15, standardHeaders: true, legacyHeaders: false });
 app.use(limiter);
 
@@ -29,6 +29,7 @@ const schema = {
 };
 const validate = ajv.compile(schema);
 
+// Endpoint para recibir eventos de vehículos
 app.post('/api/events', async (req, res) => {
   const ok = validate(req.body);
   if (!ok) return res.status(400).json({ error: 'Invalid payload', details: validate.errors });
@@ -63,6 +64,24 @@ app.post('/api/events', async (req, res) => {
     return res.status(202).json({ status: 'queued', eventId: evento.eventId, queuedAt: receivedAt });
   } catch (err) {
     console.error('[ERROR-INGESTA]', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para consultar log de eventos (desde Redis)
+app.get('/api/events', async (req, res) => {
+  try {
+    const eventIds = await redisClient.lrange('queue:vehicle-events:pending', 0, -1);
+    const events = [];
+    for (const id of eventIds) {
+      const data = await redisClient.hgetall(`evento:${id}`);
+      if (Object.keys(data).length > 0) {
+        events.push(data);
+      }
+    }
+    return res.json({ count: events.length, events });
+  } catch (err) {
+    console.error('[ERROR-LOG]', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

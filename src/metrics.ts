@@ -1,8 +1,9 @@
 import client from 'prom-client';
-
+// Configuración de métricas con prom-client
 const register = new client.Registry();
 client.collectDefaultMetrics({ register });
 
+// Métricas personalizadas
 export const eventsEnqueued = new client.Counter({ name: 'events_enqueued_total', help: 'Total events enqueued', registers: [register], labelNames: ['type'] });
 export const eventsProcessed = new client.Counter({ name: 'events_processed_total', help: 'Total events processed', registers: [register], labelNames: ['type'] });
 export const eventsFailed = new client.Counter({ name: 'events_failed_total', help: 'Total events failed', registers: [register], labelNames: ['type'] });
