@@ -20,7 +20,7 @@ export const dlqQueue = new Queue('vehicle-events-dlq', {
   redis: { host: redisHost, port: redisPort }
 });
 
-// Move exhausted failed jobs to DLQ
+// Mueve jobs fallidos a DLQ
 eventQueue.on('failed', async (job: any, err: Error) => {
   try {
     const attempts = (job.opts && job.opts.attempts) || 0;

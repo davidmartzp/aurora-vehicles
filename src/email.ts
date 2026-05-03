@@ -5,6 +5,7 @@ const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpUser = process.env.SMTP_USER;
 const smtpPass = process.env.SMTP_PASS;
 const fromAddress = process.env.FROM_ADDRESS || 'alerts@example.com';
+const alertEmailTo = process.env.ALERT_EMAIL_TO || smtpUser;
 
 let transporter: nodemailer.Transporter | null = null;
 if (smtpHost && smtpUser) {
@@ -19,5 +20,5 @@ export async function sendAlertEmail(subject: string, body: string): Promise<voi
     return;
   }
 
-  await transporter.sendMail({ from: fromAddress, to: smtpUser, subject, text: body });
+  await transporter.sendMail({ from: fromAddress, to: alertEmailTo, subject, text: body });
 }

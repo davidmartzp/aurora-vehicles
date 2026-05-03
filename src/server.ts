@@ -38,7 +38,7 @@ app.post('/api/events', async (req, res) => {
   const evento = { ...payload, receivedAt } as VehicleEvent;
 
   try {
-    // Persist minimal event hash for durability and debugging
+    // Persiste en Redis para visibilidad y posible reintento manual
     const key = `evento:${evento.eventId}`;
     await redisClient.hset(key, {
       vehicleId: evento.vehicleId,
@@ -50,10 +50,10 @@ app.post('/api/events', async (req, res) => {
       receivedAt,
       status: 'pending'
     });
-    // Push id to pending list for visibility
+    // Push a una lista para seguimiento de eventos pendientes
     await redisClient.rpush('queue:vehicle-events:pending', evento.eventId);
 
-    // Add to Bull with attempts and backoff
+    // Agrega a Bull con prioridad (Emergency > Position)
     const priority = evento.type === 'Emergency' ? 10 : 1;
     await eventQueue.add(evento, { priority, attempts: 3, backoff: { type: 'exponential', delay: 500 }, removeOnComplete: true, removeOnFail: false });
 
@@ -67,7 +67,7 @@ app.post('/api/events', async (req, res) => {
   }
 });
 
-// Metrics endpoint
+// Endpoint para métricas Prometheus
 app.get('/metrics', async (req, res) => {
   res.set('Content-Type', metricsRegister.contentType);
   res.end(await metricsRegister.metrics());
