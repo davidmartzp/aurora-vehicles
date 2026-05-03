@@ -16,11 +16,30 @@ eventBus.on('emergency.detected', async (data) => {
   }
 });
 
-// Sólo procesamos 10 eventos concurrentemente para evitar sobrecargar el sistema
-eventQueue.process(10, async (job) => {
+// Throttle: máximo 15 eventos por segundo
+const RATE_LIMIT_PER_SECOND = 15;
+const MIN_INTERVAL_MS = 1000 / RATE_LIMIT_PER_SECOND; // ~66.67ms entre eventos
+
+let lastProcessTime = 0;
+
+async function throttle() {
+  const now = Date.now();
+  const elapsed = now - lastProcessTime;
+  if (elapsed < MIN_INTERVAL_MS) {
+    const wait = MIN_INTERVAL_MS - elapsed;
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+  lastProcessTime = Date.now();
+}
+
+// Procesamos 1 evento a la vez para respetar el rate limit de 15/s
+eventQueue.process(1, async (job) => {
   const start = Date.now();
   const evento = job.data as VehicleEvent;
   const processedAt = new Date().toISOString();
+
+  // Throttle: esperar el tiempo necesario para no exceder 15 eventos/segundo
+  await throttle();
 
   console.log(`[WORKER-${job.id}] Procesando evento: ${evento.type} | Placa: ${evento.vehicle_plate} | Timestamp: ${processedAt}`);
 

@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
 import bodyParser from 'body-parser';
-import rateLimit from 'express-rate-limit';
 import Ajv from 'ajv';
 import { eventQueue, redisClient } from './queue';
 import { VehicleEvent } from './types';
@@ -10,9 +9,6 @@ import metricsRegister, { eventsEnqueued } from './metrics';
 const app = express();
 app.use(bodyParser.json());
 
-// Limitar a 15 requests por segundo para evitar sobrecarga
-const limiter = rateLimit({ windowMs: 1000, max: 15, standardHeaders: true, legacyHeaders: false });
-app.use(limiter);
 
 const ajv = new Ajv();
 const schema = {
