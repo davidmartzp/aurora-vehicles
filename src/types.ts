@@ -1,8 +1,11 @@
 export interface VehicleEvent {
-  vehicleId: string;
+  vehicle_plate: string;
   type: 'Emergency' | 'Position';
-  latitude?: number;
-  longitude?: number;
+  coordinates: {
+    latitude: string;
+    longitude: string;
+  };
+  status: string;
   timestamp: string;
   eventId: string;
   receivedAt?: string;

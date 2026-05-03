@@ -18,14 +18,19 @@ const ajv = new Ajv();
 const schema = {
   type: 'object',
   properties: {
-    vehicleId: { type: 'string' },
+    vehicle_plate: { type: 'string' },
     type: { type: 'string', enum: ['Emergency', 'Position'] },
-    latitude: { type: 'number' },
-    longitude: { type: 'number' },
-    timestamp: { type: 'string' },
-    eventId: { type: 'string' }
+    coordinates: {
+      type: 'object',
+      properties: {
+        latitude: { type: 'string' },
+        longitude: { type: 'string' }
+      },
+      required: ['latitude', 'longitude']
+    },
+    status: { type: 'string' }
   },
-  required: ['vehicleId', 'type', 'timestamp', 'eventId']
+  required: ['vehicle_plate', 'type', 'coordinates', 'status']
 };
 const validate = ajv.compile(schema);
 
@@ -36,20 +41,23 @@ app.post('/api/events', async (req, res) => {
 
   const payload = req.body as VehicleEvent;
   const receivedAt = new Date().toISOString();
-  const evento = { ...payload, receivedAt } as VehicleEvent;
+  const eventId = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+  const evento = { ...payload, eventId, timestamp, receivedAt } as VehicleEvent;
 
   try {
     // Persiste en Redis para visibilidad y posible reintento manual
     const key = `evento:${evento.eventId}`;
     await redisClient.hset(key, {
-      vehicleId: evento.vehicleId,
+      vehicle_plate: evento.vehicle_plate,
       type: evento.type,
-      latitude: String(evento.latitude || ''),
-      longitude: String(evento.longitude || ''),
+      latitude: evento.coordinates.latitude,
+      longitude: evento.coordinates.longitude,
+      status: evento.status,
       timestamp: evento.timestamp,
       eventId: evento.eventId,
       receivedAt,
-      status: 'pending'
+      processingStatus: 'pending'
     });
     // Push a una lista para seguimiento de eventos pendientes
     await redisClient.rpush('queue:vehicle-events:pending', evento.eventId);
@@ -60,7 +68,7 @@ app.post('/api/events', async (req, res) => {
 
     eventsEnqueued.inc({ type: evento.type }, 1);
 
-    console.log(`[INGESTA] Evento recibido: ${evento.type} | VehículoID: ${evento.vehicleId} | Timestamp: ${receivedAt}`);
+    console.log(`[INGESTA] Evento recibido: ${evento.type} | Placa: ${evento.vehicle_plate} | Timestamp: ${receivedAt}`);
     return res.status(202).json({ status: 'queued', eventId: evento.eventId, queuedAt: receivedAt });
   } catch (err) {
     console.error('[ERROR-INGESTA]', err);

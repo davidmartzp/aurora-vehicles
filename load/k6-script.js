@@ -1,38 +1,67 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6' ;
 
-// Config: target total events and duration (seconds)
-const TARGET_EVENTS = 1000;
-const RATE_PER_SEC = 15; // max requests per second accepted by the server
-const DURATION_S = Math.ceil(TARGET_EVENTS / RATE_PER_SEC); // keep within the rate limit
-
-export let options = {
-  scenarios: {
-    generate: {
-      executor: 'constant-arrival-rate',
-      rate: RATE_PER_SEC,
-      timeUnit: '1s',
-      duration: `${DURATION_S}s`,
-      preAllocatedVUs: Math.min(200, RATE_PER_SEC),
-      maxVUs: 500
-    }
-  }
+export const options = {
+  vus: 10,           // 10 usuarios virtuales
+  iterations: 1000,  // Total de peticiones
+  duration: '30s',   // Tiempo total
 };
 
-export default function () {
-  const payload = JSON.stringify({
-    vehicleId: `VEH-${Math.floor(Math.random()*1000)}`,
-    type: Math.random() < 0.05 ? 'Emergency' : 'Position',
-    latitude: -4.7 + (Math.random()-0.5)*0.1,
-    longitude: -74.0 + (Math.random()-0.5)*0.1,
-    timestamp: new Date().toISOString(),
-    eventId: crypto.randomUUID()
-  });
-  const headers = { 'Content-Type': 'application/json' };
-  const res = http.post('http://localhost:3000/api/events', payload, { headers });
-  check(res, { 'accepted': (r) => r.status === 202 });
+// Índice global para iteraciones (variable compartida entre VUs)
+let globalIndex = 0;
+
+// Bloque para incrementar el índice global de forma segura
+function getGlobalIndex() {
+  return globalIndex++;
 }
 
-// Note: RATE_PER_SEC * DURATION_S may slightly exceed TARGET_EVENTS due to rounding up. To hit exactly 1000 events,
-// use the shared-iterations executor: executor: 'shared-iterations', iterations: TARGET_EVENTS, vus: 200, maxDuration: `${DURATION_S}s`.
-// The constant-arrival-rate approach better simulates steady arrival rate.
+// Generar placa de vehículo
+function generateVehiclePlate() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numbers = '0123456789';
+  return `${letters.charAt(Math.floor(Math.random() * letters.length))}${letters.charAt(Math.floor(Math.random() * letters.length))}${letters.charAt(Math.floor(Math.random() * letters.length))}-${numbers.charAt(Math.floor(Math.random() * numbers.length))}${numbers.charAt(Math.floor(Math.random() * numbers.length))}${numbers.charAt(Math.floor(Math.random() * numbers.length))}`;
+}
+
+// Generar coordenadas
+function generateCoordinates() {
+  return {
+    latitude: (Math.random() * 180 - 90).toFixed(6),
+    longitude: (Math.random() * 360 - 180).toFixed(6),
+  };
+}
+
+// Generar tipo de mensaje usando índice global calculado
+function generateType(globalIndex) {
+  return globalIndex < 999 ? 'Position' : 'Emergency';
+}
+
+// Función principal
+export default function () {
+  // Cálculo del índice global
+  const globalIndex = (__VU - 1) * (options.iterations / options.vus) + __ITER;
+  
+  const payload = JSON.stringify({
+    type: generateType(globalIndex),
+    vehicle_plate: generateVehiclePlate(),
+    coordinates: generateCoordinates(),
+    status: 'OK',
+  });
+
+  const headers = { 'Content-Type': 'application/json' };
+
+  const res = http.post('http://13.59.186.180:3000/api/events', payload, { headers });
+
+  console.log(JSON.stringify({
+    globalIndex,
+    type: payload.type,
+    timestamp: new Date().toISOString(),
+    status: res.status,
+    duration: res.timings.duration
+  }));
+
+  check(res, {
+    'is status 200': (r) => r.status === 200,
+  });
+
+  sleep(0.1);
+}
